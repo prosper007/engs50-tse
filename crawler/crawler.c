@@ -41,7 +41,9 @@ int main(void) {
 	
 	//function to compare URLs
 	bool url_search(void* url_element, const void* url_key) {
-		if(strcmp((char*)url_element, (char*) url_key) == 0) {
+		char* u_e = (char *)url_element;
+		char* u_k = (char *) url_key;
+		if(strcmp(u_e, u_k) == 0) {
 			return true; 
 		}
 		else {
