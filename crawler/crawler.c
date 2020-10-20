@@ -54,10 +54,25 @@ int32_t pagesave(webpage_t *pagep, int id, char *dirname){
 
 
 int main(int argc, char *argv[]) {
+	//Check for correct # of arguements
 	if(argc != 4) {
 		printf("usage: cralwer <seedurl> <pagedir> <maxdepth>\n");
 		exit(EXIT_FAILURE);
 	}
+	//Check if valid directory
+	if(access(argv[2], F_OK) != 0) {
+		printf("usage: crawler <seedurl> <pagedir> <maxdepth>\n");
+		printf("Not a valid directory\n");
+		exit(EXIT_FAILURE);
+	}
+	//Check if depth is non-negative
+	int maxdepth = atoi(argv[3]);
+	if(maxdepth < 0) {
+		printf("usage: cralwer <seedurl> <pagedir> <maxdepth>\n");
+		printf("max depth must be positive\n");
+		exit(EXIT_FAILURE);
+	}
+	
 	
 	//create a single new webpage at depth 0, w/ seed URL: https://thayer.github.io/engs50/
 	//char *url = "https://thayer.github.io/engs50/";
