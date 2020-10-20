@@ -14,6 +14,8 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <curl/curl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdbool.h>
 #include "webpage.h"
 #include "queue.h"
@@ -37,7 +39,6 @@ bool url_search(void* url_element, const void* url_key) {
 int32_t pagesave(webpage_t *pagep, int id, char *dirname){
 	char full_file_name[50];
 	sprintf(full_file_name, "%s/%d", dirname, id);
-	printf("full file name: %s\n", full_file_name);
 	FILE *pagefile = fopen(full_file_name, "w");
 	if(pagefile == NULL){
 		return 1;
@@ -47,8 +48,10 @@ int32_t pagesave(webpage_t *pagep, int id, char *dirname){
 	sprintf(depth_html_len, "%d\n%d\n", webpage_getDepth(pagep), webpage_getHTMLlen(pagep));
 	char* html = webpage_getHTML(pagep);
 	if(fprintf(pagefile, "%s\n%s%s\n", url, depth_html_len, html) < 0) {
+		fclose(pagefile);
 		return 1;
 	}
+	fclose(pagefile);
 	return 0;
 }
 
@@ -60,7 +63,13 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	//Check if valid directory
-	if(access(argv[2], F_OK) != 0) {
+	struct stat path_stat;
+	if(stat(argv[2], &path_stat) != 0) {
+		printf("error accessing path\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	if(!S_ISDIR(path_stat.st_mode)) {
 		printf("usage: crawler <seedurl> <pagedir> <maxdepth>\n");
 		printf("Not a valid directory\n");
 		exit(EXIT_FAILURE);
@@ -88,46 +97,55 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	//create hash table
-	hashtable_t* thayer_hash = hopen(50);
+	int hsize = (maxdepth+1) * 50;
+	hashtable_t* thayer_hash = hopen(hsize);
 	if(hput(thayer_hash, root_url, root_url, strlen(root_url)+1)==1) {
 		printf("Putting url into hash didn't work");
 		exit(EXIT_FAILURE);
 	}
+
+	int id_count = 1;
+	// while loop over queue starts here
+	webpage_t* curr_webpage;
+	int curr_depth;
+	while( (curr_webpage=qget(thayer_queue)) != NULL && (curr_depth = webpage_getDepth(curr_webpage)) <= maxdepth )  {
+	// need to remove last depth without expanding
 	
-	//check if fetch webpage html to local computer is successful
-	bool fetch = webpage_fetch(thayer_webpage);
-	if(fetch != true) {
-		exit(EXIT_FAILURE);
-	}
-	pagesave(thayer_webpage, 1, "../pages");
-	// if successful, scan url
-	//char *html = webpage_getHTML(thayer_webpage);
-	int pos = 0;
-	char *result;
-	while((pos = webpage_getNextURL(thayer_webpage,pos, &result)) > 0) {
-		int32_t keylen = strlen(result)+1;
-		char* hresult = hsearch(thayer_hash, url_search, result, keylen);
-		if(IsInternalURL(result) && hresult == NULL) {
-			webpage_t *webpage_result = webpage_new(result, 1, NULL);			
-			if(hput(thayer_hash, result, result, keylen)==1) {
-				printf("Putting url into hash didn't work");
-				exit(EXIT_FAILURE);
-			}
-			if(qput(thayer_queue, webpage_result) == 1) {
-				printf("Putting webpage into queue didn't work");
-				exit(EXIT_FAILURE);
-			}
-		}	else {
-			free(result);
+	  //check if fetch webpage html to local computer is successful
+		bool fetch = webpage_fetch(curr_webpage);
+		if(fetch != true) {
+			//exit(EXIT_FAILURE);
+			webpage_delete(curr_webpage);
+			continue;
 		}
+		pagesave(curr_webpage, id_count, argv[2]);
+
+		int pos = 0;
+		char *result;
+		while((pos = webpage_getNextURL(curr_webpage,pos, &result)) > 0) {
+			int32_t keylen = strlen(result)+1;
+			char* hresult = hsearch(thayer_hash, url_search, result, keylen);
+			if(IsInternalURL(result) && hresult == NULL) {
+				webpage_t *webpage_result = webpage_new(result, curr_depth+1, NULL);			
+				if(hput(thayer_hash, result, result, keylen)==1) {
+					printf("Putting url into hash didn't work");
+					exit(EXIT_FAILURE);
+				}
+				if(qput(thayer_queue, webpage_result) == 1) {
+					printf("Putting webpage into queue didn't work");
+					exit(EXIT_FAILURE);
+				}
+			} else {
+				free(result);
+			}
+		}
+		webpage_delete(curr_webpage);
+		id_count++;
 	}
-	
-	webpage_t *webpage;
-	while( (webpage=qget(thayer_queue)) != NULL) {
-		printf("URL: %s\n", webpage_getURL(webpage));
-		webpage_delete(webpage);
+	webpage_delete(curr_webpage);
+	while((curr_webpage=qget(thayer_queue)) != NULL) {
+		webpage_delete(curr_webpage);
 	}
-	
 	hclose(thayer_hash);
 	qclose(thayer_queue);
 	exit(EXIT_SUCCESS);
