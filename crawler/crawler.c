@@ -27,8 +27,6 @@ bool url_search(void* url_element, const void* url_key) {
 	}
 	char* u_e = (char *)url_element;
 	char* u_k = (char *) url_key;
-	//printf("u_e: %s\n", u_e);
-	//printf("u_k: %s\n", u_k);
 	if(strcmp(u_e, u_k) == 0) {
 		return true; 
 	}
@@ -51,7 +49,7 @@ int main(void) {
 		exit(EXIT_FAILURE);
 	}
 	//create hash table
-	hashtable_t* thayer_hash = hopen(20);
+	hashtable_t* thayer_hash = hopen(50);
 	if(hput(thayer_hash, root_url, root_url, strlen(root_url)+1)==1) {
 		printf("Putting url into hash didn't work");
 		exit(EXIT_FAILURE);
@@ -66,9 +64,8 @@ int main(void) {
 	// if successful, scan url
 	//char *html = webpage_getHTML(thayer_webpage);
 	int pos = 0;
-	char *result = NULL;
+	char *result;
 	while((pos = webpage_getNextURL(thayer_webpage,pos, &result)) > 0) {
-		//char* category = "external";
 		int32_t keylen = strlen(result)+1;
 		char* hresult = hsearch(thayer_hash, url_search, result, keylen);
 		if(IsInternalURL(result) && hresult == NULL) {
@@ -81,24 +78,18 @@ int main(void) {
 				printf("Putting webpage into queue didn't work");
 				exit(EXIT_FAILURE);
 			}
-			//category = "internal";
 		}	else {
 			free(result);
 		}
-		//printf("Found url: %s, is %s \n", result, category);
-		//free(result);
-		result=NULL;
 	}
 	
 	webpage_t *webpage;
 	while( (webpage=qget(thayer_queue)) != NULL) {
 		printf("URL: %s\n", webpage_getURL(webpage));
 		webpage_delete(webpage);
-	}		
+	}
+	
 	hclose(thayer_hash);
 	qclose(thayer_queue);
-	free(root_url);
-	//free(html);
-	//webpage_delete(thayer_webpage);
 	exit(EXIT_SUCCESS);
 }	

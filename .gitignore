@@ -1,6 +1,7 @@
 # not ignored .c, .h, Makefile
 *.o
-
+!*hash.o
+!*queue.o
 # Emacs save files
 *~
 \#*\#
