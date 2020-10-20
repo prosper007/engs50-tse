@@ -34,10 +34,34 @@ bool url_search(void* url_element, const void* url_key) {
 	return false;
 }
 
+int32_t pagesave(webpage_t *pagep, int id, char *dirname){
+	char full_file_name[50];
+	sprintf(full_file_name, "%s/%d", dirname, id);
+	printf("full file name: %s\n", full_file_name);
+	FILE *pagefile = fopen(full_file_name, "w");
+	if(pagefile == NULL){
+		return 1;
+	}
+	char *url = webpage_getURL(pagep);
+	char depth_html_len[20];
+	sprintf(depth_html_len, "%d\n%d\n", webpage_getDepth(pagep), webpage_getHTMLlen(pagep));
+	char* html = webpage_getHTML(pagep);
+	if(fprintf(pagefile, "%s\n%s%s\n", url, depth_html_len, html) < 0) {
+		return 1;
+	}
+	return 0;
+}
 
-int main(void) {
+
+int main(int argc, char *argv[]) {
+	if(argc != 4) {
+		printf("usage: cralwer <seedurl> <pagedir> <maxdepth>\n");
+		exit(EXIT_FAILURE);
+	}
+	
 	//create a single new webpage at depth 0, w/ seed URL: https://thayer.github.io/engs50/
-	char *url = "https://thayer.github.io/engs50/";
+	//char *url = "https://thayer.github.io/engs50/";
+	char *url = argv[1];
 	char* root_url = (char*)malloc(strlen(url)+1);
 	strcpy(root_url, url);
 	webpage_t *thayer_webpage = webpage_new(root_url, 0, NULL);
@@ -60,7 +84,7 @@ int main(void) {
 	if(fetch != true) {
 		exit(EXIT_FAILURE);
 	}
-	
+	pagesave(thayer_webpage, 1, "../pages");
 	// if successful, scan url
 	//char *html = webpage_getHTML(thayer_webpage);
 	int pos = 0;
