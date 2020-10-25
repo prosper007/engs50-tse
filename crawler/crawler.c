@@ -20,7 +20,7 @@
 #include "webpage.h"
 #include "queue.h"
 #include "hash.h"
-
+#include "pageio.h"
 
 //function to compare URLs
 bool url_search(void* url_element, const void* url_key) {
@@ -35,26 +35,6 @@ bool url_search(void* url_element, const void* url_key) {
 	
 	return false;
 }
-
-int32_t pagesave(webpage_t *pagep, int id, char *dirname){
-	char full_file_name[50];
-	sprintf(full_file_name, "%s/%d", dirname, id);
-	FILE *pagefile = fopen(full_file_name, "w");
-	if(pagefile == NULL){
-		return 1;
-	}
-	char *url = webpage_getURL(pagep);
-	char depth_html_len[20];
-	sprintf(depth_html_len, "%d\n%d\n", webpage_getDepth(pagep), webpage_getHTMLlen(pagep));
-	char* html = webpage_getHTML(pagep);
-	if(fprintf(pagefile, "%s\n%s%s\n", url, depth_html_len, html) < 0) {
-		fclose(pagefile);
-		return 1;
-	}
-	fclose(pagefile);
-	return 0;
-}
-
 
 int main(int argc, char *argv[]) {
 	//Check for correct # of arguements
