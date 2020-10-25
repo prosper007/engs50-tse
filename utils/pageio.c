@@ -45,6 +45,7 @@ int32_t pagesave(webpage_t *pagep, int id, char *dirname){
  * returns: non-NULL for success; NULL otherwise
  */
 webpage_t *pageload(int id, char *dirnm) {
+	
 	//Open file ID at dirnm
 	char full_file_name[50];
 	sprintf(full_file_name, "%s/%d", dirnm, id);
@@ -75,8 +76,7 @@ webpage_t *pageload(int id, char *dirnm) {
 	int ch;
 	char html[3000];
 	while( (ch=fgetc(pagefile)) != EOF) {
-		ch = (char)ch;
-		strcat(html, ch);
+		sprintf(html, "%d", ch);
 	}
 	
 	printf("url: %s\n", url);
