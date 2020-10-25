@@ -57,15 +57,28 @@ webpage_t *pageload(int id, char *dirnm) {
 		return NULL;
 	}
 	
+	//Used getLine
+	/*char *buffer = NULL;
+	size_t n = 0;
+	size_t characters;
+	characters = getLine(&buffer, &n, pagefile); */
+	
+	
 	//Extract URL from pagefile
 	char url[50];
-	fscanf(pagefile, "%s", url);   //%s tells fscanf to stop after whitespace(new line or tab)
-	
-	//Extract depth from pagefile
 	int depth;
+	int htmlLen;
+	//char html[3000];
+	fscanf(pagefile, "%s %d %d", url, &depth, &htmlLen);   //%s tells fscanf to stop after whitespace(new line or tab)
+	/*
+	//Extract depth from pagefile
+	//int depth;
 	fgetc(pagefile);  //skips over space after url line
-    fgetc(pagefile);  //skips over new line after space
-    depth = fgetc(pagefile);  //accesses depth on new line 
+    //fgetc(pagefile);  //skips over new line after space
+    //fscanf(pagefile, "%d", depth);
+	depth = fgetc(pagefile);  //accesses depth on new line
+	printf("depth: %c\n", depth);
+
 	
 	//Extract HTML from pagefile
 	fgetc(pagefile);	//skips over space after depth line
@@ -73,20 +86,21 @@ webpage_t *pageload(int id, char *dirnm) {
 	fgetc(pagefile);	//skips over HTML len
 	fgetc(pagefile);  //skips over space after HTML len
 	fgetc(pagefile);  //skips over new line after space
+	*/
 	int ch;
 	char html[3000];
 	while( (ch=fgetc(pagefile)) != EOF) {
-		sprintf(html, "%d", ch);
+		sprintf(html, "%c", ch);
 	}
 	
 	printf("url: %s\n", url);
-	printf("depth: %c\n", depth);
+	printf("depth: %d\n", depth);
+	printf("len: %d\n", htmlLen);
 	printf("HTML: %s\n", html);
 	
 	webpage_t *thayer_webpage = webpage_new(url, depth, html);
-	//char full_file_name[50];
-	//sprintf(full_file_name, "%s/%d", dirname, id);
-	//FILE *pagefile = fopen(full_file_name, "w");
+	fclose(pagefile);
+
 	return thayer_webpage;
 }
 	
