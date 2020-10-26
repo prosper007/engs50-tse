@@ -37,6 +37,8 @@ int main(void) {
 		exit(EXIT_FAILURE);		
 	}
 	if(webpage_getHTMLlen(thayer_webpage) != webpage_getHTMLlen(loaded_webpage)) {
+		printf("t: %d\n", webpage_getHTMLlen(thayer_webpage));
+		printf("l: %d\n", webpage_getHTMLlen(loaded_webpage));
 		printf("Test failed! loaded HTML len diffferent from saved HTML len\n");
 		exit(EXIT_FAILURE);
 	}
@@ -44,6 +46,9 @@ int main(void) {
 		printf("Test failed! loaded HTML diffferent from saved HTML\n");
 		exit(EXIT_FAILURE);
 	}
+	free(root_url);
+	webpage_delete(thayer_webpage);
+	webpage_delete(loaded_webpage);
 	printf("Test passed!\n");
 	exit(EXIT_SUCCESS);
 		
