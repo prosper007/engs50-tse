@@ -78,6 +78,7 @@ webpage_t *pageload(int id, char *dirnm) {
 	webpage_t *loaded_webpage = webpage_new(url, depth, html);
 	fclose(pagefile);
 	return loaded_webpage;
+
 }
 	
 	
