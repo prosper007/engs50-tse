@@ -21,10 +21,16 @@
 #include "webpage.h"
 #include <ctype.h>
 #include "hash.h"
+#include "queue.h"
+
+typedef struct document {
+	int id;
+	int key_wc;
+} document_t;
 
 typedef struct word_count {
 	char word[50];
-	int count;
+	queue_t* word_docs;
 } word_count_t;
  
 char* NormalizeWord(char* word) {
@@ -49,11 +55,23 @@ char* NormalizeWord(char* word) {
 	return word;
 }	
 
+document_t* make_doc(int id, int count) {
+	document_t* document = (document_t*) malloc(sizeof(document));
+	document->id = id;
+	document->key_wc = count;
+	return document;
+}
 // TODO: make_word_count
-word_count_t* make_word_count(char* word, int count) {
+word_count_t* make_word_count(char* word, int id) {
 	word_count_t* word_count = (word_count_t*) malloc(sizeof(word_count_t));
+	
 	strcpy(word_count->word, word);
-	word_count->count = count;
+	
+	document_t* document = make_doc(id, 1);
+	
+	word_count->word_docs = qopen();
+	qput(word_count->word_docs, document);
+
 	return word_count; 
 }	
 
@@ -68,16 +86,39 @@ bool search_word(void* elementp, const void* searchkeyp) {
 	}
 }
 
-static int total_count = 0;
+bool find_doc(void* elementp, const void* keyp) {
+	document_t* document = (document_t*) elementp;
+	int* id = (int*) keyp;
+	if(document->id == *id) {
+		return true;
+	}
+	return false;
+}
 
-void add_word_count(void* elementp) {
+static int total_count = 0;
+static int word_doc_count = 0;
+
+void sum_word_doc_count(void* elementp) {
+	document_t* document = (document_t*) elementp;
+	word_doc_count += document->key_wc;
+}
+
+void sumwords(void* elementp) {
 	word_count_t* word_count = (word_count_t*) elementp;
-	total_count += word_count->count;
+	qapply(word_count->word_docs, sum_word_doc_count);
+	total_count += word_doc_count;
+	word_doc_count = 0;
+}
+
+void close_queue(void* elementp) {
+	word_count_t* word_count = (word_count_t*) elementp;
+	qclose(word_count->word_docs);
 }
 
 int main(void) {
 	//Load webpage w/ ID 1
-	webpage_t* loaded_page = pageload(1, "../pages");
+	int id = 1;
+	webpage_t* loaded_page = pageload(id, "../pages");
 	hashtable_t* indexer = hopen(webpage_getHTMLlen(loaded_page));
 	//print words from HTML
 	char *word;
@@ -93,13 +134,21 @@ int main(void) {
 				word_count_t* word_count = make_word_count(normalized, 1);
 				hput(indexer, word_count, normalized, strlen(normalized));
 			} else { // normalized word is already in hash table
-				search_result->count += 1; 
+				queue_t* doc_queue = search_result->word_docs;
+				document_t* doc_search = qsearch(doc_queue, find_doc, &id);
+				if(doc_search == NULL) { // document is not in queue of docs associated with word
+					document_t* doc = make_doc(id, 1);
+					qput(doc_queue, doc);
+				} else { // document is in queue. increase count of normalized word in doc
+					doc_search->key_wc += 1;
+				}
 			}
 		}
 		free(word);
 	}
-	happly(indexer, add_word_count);
+	happly(indexer, sumwords);
 	printf("total count: %d\n", total_count);
+	happly(indexer, close_queue);
 	hclose(indexer);
 	webpage_delete(loaded_page);
 }
