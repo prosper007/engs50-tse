@@ -1,6 +1,16 @@
 /* indexer.c --- 
  * 
  * 
+ * Author: Chikezie Onungwa
+ * Created: Tue Oct 27 19:18:42 2020 (-0400)
+ * Version: 
+ * 
+ * Description: 
+ * 
+ */
+/* indexer.c --- 
+ * 
+ * 
  * Author: Team Higher Learning
  * Created: Sun Oct 25 17:18:47 2020 
  * Version: 
@@ -115,41 +125,48 @@ void close_queue(void* elementp) {
 	qclose(word_count->word_docs);
 }
 
-int main(void) {
+int main(int argc, char* argv[]) {
 	//Load webpage w/ ID 1
-	int id = 1;
-	webpage_t* loaded_page = pageload(id, "../pages");
-	hashtable_t* indexer = hopen(webpage_getHTMLlen(loaded_page));
-	//print words from HTML
-	char *word;
-	int pos = 0;
-	while((pos = webpage_getNextWord(loaded_page,pos, &word)) > 0) {
-		char* normalized = NormalizeWord(word);
-		//strcpy(word,);
-		if(normalized != NULL) {
-			printf("%s\n", normalized); 
-			word_count_t* search_result = (word_count_t*) hsearch(indexer, search_word, normalized, strlen(normalized));
-			// normalized word is not in hash table
-			if(search_result == NULL) {
-				word_count_t* word_count = make_word_count(normalized, 1);
-				hput(indexer, word_count, normalized, strlen(normalized));
-			} else { // normalized word is already in hash table
-				queue_t* doc_queue = search_result->word_docs;
-				document_t* doc_search = qsearch(doc_queue, find_doc, &id);
-				if(doc_search == NULL) { // document is not in queue of docs associated with word
-					document_t* doc = make_doc(id, 1);
-					qput(doc_queue, doc);
-				} else { // document is in queue. increase count of normalized word in doc
-					doc_search->key_wc += 1;
+	if(argc != 2) {
+		printf("usage: indexer <id>\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	int id = atoi(argv[1]);
+	hashtable_t* indexer = hopen(300*id);
+	for(int i = 1; i <= id; i++) {
+		webpage_t* loaded_page = pageload(i, "../pages");
+		//int htmlLen = webpage_getHTMLlen(loaded_page);
+		char *word;
+		int pos = 0;
+		while((pos = webpage_getNextWord(loaded_page,pos, &word)) > 0) {
+			char* normalized = NormalizeWord(word);
+			//strcpy(word,);
+			if(normalized != NULL) {
+				printf("%s\n", normalized); 
+				word_count_t* search_result = (word_count_t*) hsearch(indexer, search_word, normalized, strlen(normalized));
+				// normalized word is not in hash table
+				if(search_result == NULL) {
+					word_count_t* word_count = make_word_count(normalized, i);
+					hput(indexer, word_count, normalized, strlen(normalized));
+				} else { // normalized word is already in hash table
+					queue_t* doc_queue = search_result->word_docs;
+					document_t* doc_search = qsearch(doc_queue, find_doc, &i);
+					if(doc_search == NULL) { // document is not in queue of docs associated with word
+						document_t* doc = make_doc(i, 1);
+						qput(doc_queue, doc);
+					} else { // document is in queue. increase count of normalized word in doc
+						doc_search->key_wc += 1;
+					}
 				}
 			}
+			free(word);
 		}
-		free(word);
+		webpage_delete(loaded_page);
 	}
 	happly(indexer, sumwords);
 	printf("total count: %d\n", total_count);
 	happly(indexer, close_queue);
 	hclose(indexer);
-	webpage_delete(loaded_page);
 }
 	

@@ -27,10 +27,8 @@ int32_t pagesave(webpage_t *pagep, int id, char *dirname){
 		return 1;
 	}
 	char *url = webpage_getURL(pagep);
-	char depth_html_len[20];
-	sprintf(depth_html_len, "%d\n%d\n", webpage_getDepth(pagep), webpage_getHTMLlen(pagep));
 	char* html = webpage_getHTML(pagep);
-	if(fprintf(pagefile, "%s\n%s%s", url, depth_html_len, html) < 0) {
+	if(fprintf(pagefile, "%s\n%d\n%d\n%s", url, webpage_getDepth(pagep), webpage_getHTMLlen(pagep), html) < 0) {
 		fclose(pagefile);
 		return 1;
 	}
@@ -59,7 +57,7 @@ webpage_t *pageload(int id, char *dirnm) {
 
 	char url[50];
 	int depth = 0;
-	int htmlLen;
+	int htmlLen=0;
 	fscanf(pagefile, "%s %d %d", url, &depth, &htmlLen);
 
 	// skip over new line character
@@ -67,7 +65,7 @@ webpage_t *pageload(int id, char *dirnm) {
 	
 	int ch;
 	//	char html[3000];
-	char* html = (char*) malloc(3000 * sizeof(char));
+	char* html = (char*) malloc(htmlLen+1 * sizeof(char));
 	int i = 0;
 	while( (ch=fgetc(pagefile)) != EOF) {
 		html[i] = (char) ch;
