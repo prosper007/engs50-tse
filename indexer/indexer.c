@@ -32,6 +32,7 @@
 #include <ctype.h>
 #include "hash.h"
 #include "queue.h"
+#include "indexio.h"
 
 typedef struct document {
 	int id;
@@ -72,15 +73,12 @@ document_t* make_doc(int id, int count) {
 	return document;
 }
 // TODO: make_word_count
-word_count_t* make_word_count(char* word, int id) {
+word_count_t* make_word_count(char* word) {
 	word_count_t* word_count = (word_count_t*) malloc(sizeof(word_count_t));
 	
 	strcpy(word_count->word, word);
 	
-	document_t* document = make_doc(id, 1);
-	
 	word_count->word_docs = qopen();
-	qput(word_count->word_docs, document);
 
 	return word_count; 
 }	
@@ -131,7 +129,12 @@ int main(int argc, char* argv[]) {
 		printf("usage: indexer <id>\n");
 		exit(EXIT_FAILURE);
 	}
-	
+	FILE* index_file = fopen("indexnm", "w");
+	if(index_file == NULL) {
+		printf("Error opening file\n");
+		exit(EXIT_FAILURE);
+	}
+
 	int id = atoi(argv[1]);
 	hashtable_t* indexer = hopen(300*id);
 	for(int i = 1; i <= id; i++) {
@@ -147,7 +150,9 @@ int main(int argc, char* argv[]) {
 				word_count_t* search_result = (word_count_t*) hsearch(indexer, search_word, normalized, strlen(normalized));
 				// normalized word is not in hash table
 				if(search_result == NULL) {
-					word_count_t* word_count = make_word_count(normalized, i);
+					word_count_t* word_count = make_word_count(normalized);
+					document_t* document = make_doc(i, 1);
+					qput(word_count->word_docs, document);
 					hput(indexer, word_count, normalized, strlen(normalized));
 				} else { // normalized word is already in hash table
 					queue_t* doc_queue = search_result->word_docs;
@@ -166,6 +171,8 @@ int main(int argc, char* argv[]) {
 	}
 	happly(indexer, sumwords);
 	printf("total count: %d\n", total_count);
+	indexsave(indexer, "indexnm");
+	fclose(index_file);
 	happly(indexer, close_queue);
 	hclose(indexer);
 }

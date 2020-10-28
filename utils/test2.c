@@ -38,8 +38,8 @@ void close_queue(void* elementp) {
 
 int main(void) {
 	//indexsave(3, "indexnm");
-	hashtable_t* indexer = indexload(3, "indexnm");
-	indexsave(indexer, "indexnm_loaded");
+	hashtable_t* indexer = indexload(3, "indexnm_loader");
+	indexsave(indexer, "indexnm_saved");
 	happly(indexer, close_queue);
 	hclose(indexer);
 	exit(EXIT_SUCCESS);
