@@ -51,7 +51,7 @@ webpage_t *pageload(int id, char *dirnm) {
 	
 	//Check if pagefile is non-empty
 	if(pagefile == NULL){
-		printf("Requested file is empty\n");
+		printf("Error opening file\n");
 		return NULL;
 	}
 
