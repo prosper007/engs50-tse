@@ -45,7 +45,7 @@ int32_t pagesave(webpage_t *pagep, int id, char *dirname){
 webpage_t *pageload(int id, char *dirnm) {
 	
 	//Open file ID at dirnm
-	char full_file_name[50];
+	char full_file_name[500];
 	sprintf(full_file_name, "%s/%d", dirnm, id);
 	FILE *pagefile = fopen(full_file_name, "r");    //"r" bc file is only to be read
 	
@@ -55,7 +55,7 @@ webpage_t *pageload(int id, char *dirnm) {
 		return NULL;
 	}
 
-	char url[50];
+	char url[500];
 	int depth = 0;
 	int htmlLen=0;
 	fscanf(pagefile, "%s %d %d", url, &depth, &htmlLen);

@@ -33,6 +33,7 @@
 #include "hash.h"
 #include "queue.h"
 #include "indexio.h"
+#include <dirent.h>
 
 typedef struct document {
 	int id;
@@ -125,20 +126,51 @@ void close_queue(void* elementp) {
 
 int main(int argc, char* argv[]) {
 	//Load webpage w/ ID 1
-	if(argc != 2) {
-		printf("usage: indexer <id>\n");
+	if(argc != 3) {
+		printf("usage: indexer <pagedir> <indexnm>\n");
 		exit(EXIT_FAILURE);
 	}
-	FILE* index_file = fopen("indexnm", "w");
+	
+	struct stat path_stat;
+	if(stat(argv[1], &path_stat) != 0) {
+		printf("error accessing path\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!S_ISDIR(path_stat.st_mode)) {
+		printf("usage: indexer <pagedir> <indexnm>\n");
+		printf("Not a valid directory\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	DIR *pages_dir;
+	struct dirent *dir;
+	pages_dir = opendir(argv[1]);
+	if(pages_dir == NULL) {
+		printf("error opening pagedir\n");
+		exit(EXIT_FAILURE);
+	}
+	int id = 0;
+	while((dir = readdir(pages_dir)) != NULL) {
+		int curr_id = atoi(dir->d_name);
+		if(curr_id > id) {
+			id = curr_id;
+		}
+	}
+	closedir(pages_dir);
+	if(id < 1) {
+		printf("pagedir is empty\n");
+		exit(EXIT_FAILURE);
+	}
+	printf("max_id: %d\n", id);
+	FILE* index_file = fopen(argv[2], "w");
 	if(index_file == NULL) {
 		printf("Error opening file\n");
 		exit(EXIT_FAILURE);
 	}
-
-	int id = atoi(argv[1]);
+	
 	hashtable_t* indexer = hopen(300*id);
 	for(int i = 1; i <= id; i++) {
-		webpage_t* loaded_page = pageload(i, "../pages");
+		webpage_t* loaded_page = pageload(i, argv[1]);
 		//int htmlLen = webpage_getHTMLlen(loaded_page);
 		char *word;
 		int pos = 0;
@@ -146,7 +178,6 @@ int main(int argc, char* argv[]) {
 			char* normalized = NormalizeWord(word);
 			//strcpy(word,);
 			if(normalized != NULL) {
-				printf("%s\n", normalized); 
 				word_count_t* search_result = (word_count_t*) hsearch(indexer, search_word, normalized, strlen(normalized));
 				// normalized word is not in hash table
 				if(search_result == NULL) {
@@ -171,7 +202,7 @@ int main(int argc, char* argv[]) {
 	}
 	happly(indexer, sumwords);
 	printf("total count: %d\n", total_count);
-	indexsave(indexer, "indexnm");
+	indexsave(indexer, argv[2]);
 	fclose(index_file);
 	happly(indexer, close_queue);
 	hclose(indexer);

@@ -53,12 +53,12 @@ static word_count_t* make_word_count(char* word) {
 	return word_count; 
 }	
 
-static char indexnm_buffer[30000];
-static char doc_counts[3000];
+static char indexnm_buffer[300000];
+static char doc_counts[30000];
 
 static void getDocCount(void* elementp) {
 	document_t* document = (document_t*)elementp;
-	char id_count[100];
+	char id_count[1000];
 	sprintf(id_count, " %d %d", document->id, document->key_wc);
 	strcat(doc_counts, id_count);
 }
@@ -67,7 +67,7 @@ static void write_to_buffer(void* elementp) {
 	word_count_t* word_count = (word_count_t*) elementp;
 
 	qapply(word_count->word_docs, getDocCount);
-	char word_doc_counts[4000];
+	char word_doc_counts[40000];
 	sprintf(word_doc_counts, "%s%s\n", word_count->word, doc_counts);
 	strcat(indexnm_buffer, word_doc_counts);
 	memset(doc_counts, 0, strlen(doc_counts));
@@ -93,10 +93,10 @@ hashtable_t *indexload(int id, char* indexnm) {
 	}
 
 	hashtable_t* indexer = hopen(300*id);
-	char line[300];
+	char line[id*300];
 	while(fgets(line, sizeof(line), index_file)) {
-		char word[50];
-		char doc_counts[250];
+		char word[id*50];
+		char doc_counts[id*250];
 		sscanf(line, "%s %[^\n]", word, doc_counts);
 
 		word_count_t* word_count = make_word_count(word);
