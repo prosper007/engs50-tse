@@ -57,16 +57,28 @@ void get_count(void* elementp) {
 	}
 }
 
+// Create a global hashtable to put ID and search tallies
+hastable_t* doc_tally = hopen(MAX_LEN);
+
+//A function (that we will qapply to queue of docs for each word) that puts id's into hashtable
+void put_searchtally(void* elementp) {
+	document_t* document = (document_t*) elementp;
+	int* search_tally; // not sure about this  ASK MIT AND PROSPER
+	hput(doc_tally, search_tally, document->id, sizeof(document->id)); //put search tally for each id 
+}
+
 int main(void) {
 	char input[MAX_LEN];
 	printf("> ");
 
-	hashtable_t* index = indexload(1, "../indexer/indexnm");
+	queue_t* query_docs = qopen(); //QUEUE FOR STEP 3
+	hashtable_t* index = indexload(7, "../indexer/indexnm");
 	char output[MAX_LEN];
 	
 	while(fgets(input, MAX_LEN, stdin) != NULL) {
 		char* delim = " \t\n";
 		char* token;
+		int normalized_count = 1; // Count to keep track of the number of words in the query
 		token = strtok(input, delim);
 		while(token != NULL) {
 			char* normalized = normalize_word(token);
@@ -80,11 +92,11 @@ int main(void) {
 				if(word_count != NULL) { // word exists in index
 					strcat(output, word_count->word);
 					qapply(word_count->word_docs, get_count);
+					qapply(word_count->word_docs, put_searchtally); // DOUBLE CHECK THIS
 					strcat(output, doc_buffer);
 				}
-				
 			}
-			
+			normalized_count++; // increment normalized count 
 			token = strtok(NULL, delim);
 			memset(doc_buffer, 0, MAX_LEN);
 		}
@@ -92,6 +104,8 @@ int main(void) {
 			printf("%s - %d\n", output, min);
 		}
 		min = INT_MAX;
+		// NEED TO CHECK IF SEARCH TALLY FOR EACH ID MATCHES NORMALIZED_COUNT
+		
 		memset(output, 0, MAX_LEN);
 		printf("> ");
 	}
