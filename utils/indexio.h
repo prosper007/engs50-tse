@@ -24,6 +24,17 @@
 #include "hash.h"
 #include "queue.h"
 
+
+typedef struct document {
+	int id;
+	int key_wc;
+} document_t;
+
+typedef struct word_count {
+	char word[50];
+	queue_t* word_docs;
+} word_count_t;
+
 int32_t indexsave(hashtable_t* indexer, char* indexnm);
 
 hashtable_t *indexload(int id, char* indexnm);

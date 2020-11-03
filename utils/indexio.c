@@ -25,6 +25,7 @@
 #include "queue.h"
 #include "indexio.h"
 
+/*
 typedef struct document {
 	int id;
 	int key_wc;
@@ -34,7 +35,7 @@ typedef struct word_count {
 	char word[50];
 	queue_t* word_docs;
 } word_count_t;
- 
+*/
 
 static document_t* make_doc(int id, int count) {
 	document_t* document = (document_t*) malloc(sizeof(document));

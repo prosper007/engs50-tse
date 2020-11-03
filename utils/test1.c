@@ -26,8 +26,8 @@ int main(void) {
 		webpage_delete(thayer_webpage);
 		exit(EXIT_FAILURE);
 	}
-	pagesave(thayer_webpage, 1, "./pages");
-	webpage_t *loaded_webpage = pageload(1, "./pages");
+	pagesave(thayer_webpage, 1, "../pages");
+	webpage_t *loaded_webpage = pageload(1, "../pages");
 	if(strcmp(webpage_getURL(thayer_webpage), webpage_getURL(loaded_webpage)) != 0 ) {
 			printf("Test failed! loaded URL diffferent from saved URL\n");
 			exit(EXIT_FAILURE);

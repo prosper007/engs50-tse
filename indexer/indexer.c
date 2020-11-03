@@ -47,20 +47,15 @@ typedef struct word_count {
  
 char* NormalizeWord(char* word) {
 	int str_len = strlen(word);
-	//char* empty_word = "\0";
-	//empty_word[0] = '\0';
+
 	if(str_len < 3) {
-		//strcpy(word,empty_word);
 		return NULL;
 	}
 	for(int i = 0; i < str_len; i++) {
 		if(isalpha(word[i]) == 0) {
-			//strcpy(word,empty_word);
 			return NULL;
 		}
 		if(isupper(word[i]) != 0) {
-			//strncpy(word[i],tolower(word[i]), 1);
-			//printf("here\n");
 			word[i] = tolower(word[i]);
 		}
 	}
@@ -161,7 +156,7 @@ int main(int argc, char* argv[]) {
 		printf("pagedir is empty\n");
 		exit(EXIT_FAILURE);
 	}
-	printf("max_id: %d\n", id);
+	//printf("max_id: %d\n", id);
 	FILE* index_file = fopen(argv[2], "w");
 	if(index_file == NULL) {
 		printf("Error opening file\n");
@@ -171,13 +166,12 @@ int main(int argc, char* argv[]) {
 	hashtable_t* indexer = hopen(300*id);
 	for(int i = 1; i <= id; i++) {
 		webpage_t* loaded_page = pageload(i, argv[1]);
-		//int htmlLen = webpage_getHTMLlen(loaded_page);
+
 		char *word;
 		int pos = 0;
 		while((pos = webpage_getNextWord(loaded_page,pos, &word)) > 0) {
 			char* normalized = NormalizeWord(word);
-			//strcpy(word,);
-			if(normalized != NULL) {
+			if(normalized != NULL) {				
 				word_count_t* search_result = (word_count_t*) hsearch(indexer, search_word, normalized, strlen(normalized));
 				// normalized word is not in hash table
 				if(search_result == NULL) {
