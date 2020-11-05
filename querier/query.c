@@ -203,6 +203,17 @@ void put_word(and_seq_t* and_seq, char* word) {
 	and_seq->seq_len += 1;
 }
 
+void cleanup() {
+	happly(doc_tally_hash, close_doc_tallies);
+	hclose(doc_tally_hash);
+		
+	happly(query_results, close_doc_tallies);
+	hclose(query_results);
+
+	qapply(query, close_and_seqs);
+	qclose(query);	
+}
+
 int main(int argc, char* argv[]) {
 	if(argc < 3 || argc > 4) {
 		printf("usage: query <pageDirectory> <indexFile> [-q]\n");
@@ -262,16 +273,7 @@ int main(int argc, char* argv[]) {
 		token = strtok(input, delim);
 		if(token == NULL) {
 			printf("> ");
-			
-			happly(doc_tally_hash, close_doc_tallies);
-			hclose(doc_tally_hash);
-		
-			happly(query_results, close_doc_tallies);
-			hclose(query_results);
-
-			qapply(query, close_and_seqs);
-			qclose(query);
-		
+			cleanup();
 			continue;
 		}
 		bool first_word = true;
@@ -279,7 +281,7 @@ int main(int argc, char* argv[]) {
 		bool found_and = false;
 		bool found_or = false;
 		bool has_error = false;
-		and_seq_t* and_seq;
+		and_seq_t* and_seq = NULL;
 		char* normalized;
 		char normalized_query[MAX_LEN];
 		normalized_query[0] = '\0';
@@ -290,6 +292,7 @@ int main(int argc, char* argv[]) {
 			if(normalized == NULL) {
 				printf("[invalid query]\n");
 				has_error = true;
+				//cleanup();
 				break;
 			}
 
@@ -297,6 +300,7 @@ int main(int argc, char* argv[]) {
 			if(first_word && (strcmp(normalized, "and") == 0 || strcmp(normalized, "or") == 0)) {
 				printf("[invalid query]\n");
 				has_error = true;
+				//cleanup();
 				break;
 			}
 			first_word=false;
@@ -313,6 +317,7 @@ int main(int argc, char* argv[]) {
 					has_error = true;
 					found_and = false;
 					found_or = false;
+					//cleanup();
 					break;
 				}
 				found_and = true;
@@ -330,10 +335,12 @@ int main(int argc, char* argv[]) {
 					found_or = false;
 					printf("[invalid query]\n");
 					has_error = true;
+					//cleanup();
 					break;
 				}
 				found_or = true;
 				qput(query, and_seq);
+				and_seq = NULL;
 				existing_seq = false;
 				token = strtok(NULL, delim);
 				strcat(normalized_query, normalized);
@@ -372,17 +379,14 @@ int main(int argc, char* argv[]) {
 			qapply(query, process_query);
 			printf("%s\n", normalized_query);
 			happly(query_results, print_query_results);
+			and_seq = NULL;
+			//cleanup();
+		} else if(and_seq != NULL){
+			qclose(and_seq->and_queries);
+			free(and_seq);
 		}
 				
-		
-		happly(doc_tally_hash, close_doc_tallies);
-		hclose(doc_tally_hash);
-		
-		happly(query_results, close_doc_tallies);
-		hclose(query_results);
-
-		qapply(query, close_and_seqs);
-		qclose(query);
+		cleanup();
 		
 		seq_idx = 1;
 		memset(normalized_query, 0, sizeof(normalized_query));
