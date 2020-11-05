@@ -27,12 +27,29 @@ typedef struct doc_tally {
 	char url[100];
 } doc_tally_t;
 
+typedef struct and_sequence {
+	queue_t* and_queries; // list of consecutive implict and explict "and" operands
+	int seq_len; // length of and_queries
+	int seq_idx;
+} and_seq_t;
+
+
+
+
 doc_tally_t* make_doc_tally(int id, int query_tally, int rank) {
 	doc_tally_t* doc_tally = (doc_tally_t*) malloc(sizeof(doc_tally_t));
 	doc_tally->id = id;
 	doc_tally->query_tally = query_tally;
 	doc_tally->rank = rank;
 	return doc_tally;
+}
+
+and_seq_t* make_and_sequence(int seq_idx) {
+	and_seq_t* and_seq = (and_seq_t*) malloc(sizeof(and_seq_t));
+	and_seq->and_queries = qopen();
+	and_seq->seq_len = 0;
+	and_seq->seq_idx = seq_idx;
+	return and_seq;
 }
 	
 char* normalize_word(char* word) {
@@ -63,6 +80,8 @@ bool search_word(void* elementp, const void* searchkeyp) {
 hashtable_t* doc_tally_hash;
 queue_t* query_docs;
 int normalized_count = 0;
+queue_t* query;
+int seq_idx = 1;
 
 bool find_doc_id(void* elementp, const void* searchkeyp) {
 	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
@@ -123,6 +142,24 @@ void close_queue(void* elementp) {
 	qclose(word_count->word_docs);
 }
 
+void put_word(and_seq_t* and_seq, char* word) {
+	qput(and_seq->and_queries, word);
+	and_seq->seq_len += 1;
+}
+
+void print_and_seq(void* elementp) {
+	char* word = (char*) elementp;
+	printf("%s\n", word);
+}
+
+void print_query(void* elementp) {
+	and_seq_t* and_seq = (and_seq_t*) elementp;
+	printf("and_seq_idx: %d\n", and_seq->seq_idx);
+	qapply(and_seq->and_queries, print_and_seq);
+	printf("seq_len: %d\n", and_seq->seq_len);
+	printf("\n");
+}
+
 int main(void) {
 	char input[MAX_LEN];
 	printf("> ");
@@ -130,6 +167,7 @@ int main(void) {
 	hashtable_t* index = indexload(7, "../indexer/indexnm");
 	
 	while(fgets(input, MAX_LEN, stdin) != NULL) {
+		query = qopen();
 		doc_tally_hash = hopen(MAX_LEN);
 		query_docs = qopen();
 		
@@ -137,28 +175,108 @@ int main(void) {
 		char* token;
 		normalized_count = 0; // Count to keep track of the number of words in the query
 		token = strtok(input, delim);
+		if(token == NULL) {
+			printf("> ");
+			continue;
+		}
+		bool first_word = true;
+		bool existing_seq = false;
+		bool found_and = false;
+		bool found_or = false;
+		bool has_error = false;
+		and_seq_t* and_seq;
 		while(token != NULL) {
 			char* normalized = normalize_word(token);
-			// if normalized word is less than 3 characters or is reserved word, "and", continue 
-			if(strlen(normalized) >= 3 && strcmp(normalized, "and") != 0) { 
-				if(normalized == NULL) {
-					printf("[invalid query]\n");
+			// normalized word contains non-alphabetic character
+			if(normalized == NULL) {
+				printf("[invalid query] a\n");
+				has_error = true;
+				break;
+			}
+
+			// first word of query is operator "and" or "or"
+			if(first_word && (strcmp(normalized, "and") == 0 || strcmp(normalized, "or") == 0)) {
+				printf("[invalid query] b\n");
+				has_error = true;
+				break;
+			}
+			first_word=false;
+
+			// if normalized word is less than 3 characters and is not reserved word, "or", continue
+			if(strlen(normalized) < 3 && strcmp(normalized, "or") != 0) {
+				token = strtok(NULL, delim);
+				continue;
+			}
+
+			if(strcmp(normalized, "and") == 0) {
+				if(found_and || found_or) {
+					printf("[invalid query] c\n");
+					has_error = true;
+					found_and = false;
+					found_or = false;
 					break;
 				}
-				word_count_t* word_count = (word_count_t*) hsearch(index, search_word, normalized, strlen(normalized));
-				if(word_count != NULL) { // word exists in index
-					qapply(word_count->word_docs, put_searchtally); // DOUBLE CHECK THIS
-				}
+				found_and = true;
+				token = strtok(NULL, delim);
+				continue;
+			} else if(found_and && strcmp(normalized, "or") != 0) {
+				found_and = false;
 			}
-			normalized_count++; // increment normalized count 
+
+			if(strcmp(normalized, "or") == 0) {
+				if(found_and || found_or) {
+					found_and = false;
+					found_or = false;
+					printf("[invalid query] d\n");
+					has_error = true;
+					break;
+				}
+				found_or = true;
+				qput(query, and_seq);
+				existing_seq = false;
+				token = strtok(NULL, delim);
+				continue;
+			} else if(found_or) {
+				found_or = false;
+			}
+			
+			if(!existing_seq){
+				and_seq = make_and_sequence(seq_idx);
+				seq_idx+=1;
+				existing_seq = true;
+			}
+			
+			put_word(and_seq, normalized);
 			token = strtok(NULL, delim);
+		}
+
+		if(found_and || found_or) {
+			printf("[invalid query] e\n");
+			has_error = true;
+		}
+
+		if(!has_error) {
+			qput(query, and_seq);
+		}
+		/*		
+		word_count_t* word_count = (word_count_t*) hsearch(index, search_word, normalized, strlen(normalized));
+		if(word_count != NULL) { // word exists in index
+			qapply(word_count->word_docs, put_searchtally); // DOUBLE CHECK THIS
+		}
+	}
+			normalized_count++; // increment normalized count 
+
 		}
 		//happly(doc_tally_hash, print_hash);
 		happly(doc_tally_hash, filter_docs);
 		qapply(query_docs, print_queue);
+		*/
 		// NEED TO CHECK IF SEARCH TALLY FOR EACH ID MATCHES NORMALIZED_COUNT
+		qapply(query, print_query);
 		hclose(doc_tally_hash);
+		qclose(query);
 		qclose(query_docs);
+		seq_idx = 1;
 		printf("> ");
 	}
 	happly(index, close_queue);
