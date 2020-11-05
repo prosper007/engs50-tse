@@ -17,6 +17,7 @@
 #include "indexio.h"
 #include "hash.h"
 #include "queue.h"
+#include <dirent.h>
 
 #define MAX_LEN 501
 
@@ -175,7 +176,7 @@ void process_query(void* elementp) { // process all "and" sequences, connected b
 	happly(doc_tally_hash, filter_doc_tallies); 
 }
 
-void print_queue_results(void* elementp) {
+void print_query_results(void* elementp) {
 	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
 	printf("rank: %d, doc: %d, url: %s", doc_tally->rank, doc_tally->id, doc_tally->url);
 }
@@ -202,11 +203,54 @@ void put_word(and_seq_t* and_seq, char* word) {
 	and_seq->seq_len += 1;
 }
 
-int main(void) {
+int main(int argc, char* argv[]) {
+	if(argc < 3 || argc > 4) {
+		printf("usage: query <pageDirectory> <indexFile> [-q]\n");
+		exit(EXIT_FAILURE);
+	}
+
+	struct stat path_stat;
+	if(stat(argv[1], &path_stat) != 0) {
+		printf("error accessing path\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!S_ISDIR(path_stat.st_mode)) {
+		printf("usage: query <pageDirectory> <indexFile> [-q]\n");
+		printf("Not a valid directory\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	DIR *pages_dir;
+	struct dirent *dir;
+	pages_dir = opendir(argv[1]);
+	if(pages_dir == NULL) {
+		printf("error opening pagedir\n");
+		exit(EXIT_FAILURE);
+	}
+
+	int id = 0;
+	while((dir = readdir(pages_dir)) != NULL) {
+		int curr_id = atoi(dir->d_name);
+		if(curr_id > id) {
+			id = curr_id;
+		}
+	}
+	closedir(pages_dir);
+	if(id < 1) {
+		printf("pagedir is empty\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	char indexer_command[100];
+	sprintf(indexer_command, "../indexer/indexer %s ../indexer/%s", argv[1], argv[2]);
+	system(indexer_command);
+	
+	char index_file_path[100];
+	sprintf(index_file_path, "../indexer/%s", argv[2]);
+	hashtable_t* index = indexload(id, index_file_path);
+	
 	char input[MAX_LEN];
 	printf("> ");
-
-	hashtable_t* index = indexload(7, "../indexer/indexnm");
 	
 	while(fgets(input, MAX_LEN, stdin) != NULL) {
 		query = qopen();
@@ -218,6 +262,16 @@ int main(void) {
 		token = strtok(input, delim);
 		if(token == NULL) {
 			printf("> ");
+			
+			happly(doc_tally_hash, close_doc_tallies);
+			hclose(doc_tally_hash);
+		
+			happly(query_results, close_doc_tallies);
+			hclose(query_results);
+
+			qapply(query, close_and_seqs);
+			qclose(query);
+		
 			continue;
 		}
 		bool first_word = true;
@@ -227,18 +281,21 @@ int main(void) {
 		bool has_error = false;
 		and_seq_t* and_seq;
 		char* normalized;
+		char normalized_query[MAX_LEN];
+		normalized_query[0] = '\0';
+		
 		while(token != NULL) {
 			normalized = normalize_word(token);
 			// normalized word contains non-alphabetic character
 			if(normalized == NULL) {
-				printf("[invalid query] a\n");
+				printf("[invalid query]\n");
 				has_error = true;
 				break;
 			}
 
 			// first word of query is operator "and" or "or"
 			if(first_word && (strcmp(normalized, "and") == 0 || strcmp(normalized, "or") == 0)) {
-				printf("[invalid query] b\n");
+				printf("[invalid query]\n");
 				has_error = true;
 				break;
 			}
@@ -252,7 +309,7 @@ int main(void) {
 
 			if(strcmp(normalized, "and") == 0) {
 				if(found_and || found_or) {
-					printf("[invalid query] c\n");
+					printf("[invalid query]\n");
 					has_error = true;
 					found_and = false;
 					found_or = false;
@@ -260,6 +317,8 @@ int main(void) {
 				}
 				found_and = true;
 				token = strtok(NULL, delim);
+				strcat(normalized_query, normalized);
+				strcat(normalized_query, " ");
 				continue;
 			} else if(found_and && strcmp(normalized, "or") != 0) {
 				found_and = false;
@@ -269,7 +328,7 @@ int main(void) {
 				if(found_and || found_or) {
 					found_and = false;
 					found_or = false;
-					printf("[invalid query] d\n");
+					printf("[invalid query]\n");
 					has_error = true;
 					break;
 				}
@@ -277,6 +336,8 @@ int main(void) {
 				qput(query, and_seq);
 				existing_seq = false;
 				token = strtok(NULL, delim);
+				strcat(normalized_query, normalized);
+				strcat(normalized_query, " ");
 				continue;
 			} else if(found_or) {
 				found_or = false;
@@ -289,6 +350,8 @@ int main(void) {
 			}
 			
 			put_word(and_seq, normalized);
+			strcat(normalized_query, normalized);
+			strcat(normalized_query, " ");
 			token = strtok(NULL, delim);
 
 			word_count_t* word_count = (word_count_t*) hsearch(index, search_word, normalized, strlen(normalized));
@@ -300,16 +363,17 @@ int main(void) {
 		}
 
 		if(found_and || found_or) {
-			printf("[invalid query] e\n");
+			printf("[invalid query]\n");
 			has_error = true;
 		}
 
 		if(!has_error) {
 			qput(query, and_seq);
+			qapply(query, process_query);
+			printf("%s\n", normalized_query);
+			happly(query_results, print_query_results);
 		}
 				
-		qapply(query, process_query);
-		happly(query_results, print_queue_results);
 		
 		happly(doc_tally_hash, close_doc_tallies);
 		hclose(doc_tally_hash);
@@ -321,9 +385,19 @@ int main(void) {
 		qclose(query);
 		
 		seq_idx = 1;
+		memset(normalized_query, 0, sizeof(normalized_query));
 		printf("> ");
 	}
 	happly(index, close_queue);
 	hclose(index);
+	
+	//happly(query_results, close_doc_tallies);
+	//hclose(query_results);
+	
+	//hclose(doc_tally_hash);
+
+	//qapply(query, close_and_seqs);
+	//qclose(query);
+	
 	exit(EXIT_SUCCESS);
 }

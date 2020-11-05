@@ -25,25 +25,13 @@
 #include "queue.h"
 #include "indexio.h"
 
-/*
-typedef struct document {
-	int id;
-	int key_wc;
-} document_t;
-
-typedef struct word_count {
-	char word[50];
-	queue_t* word_docs;
-} word_count_t;
-*/
-
 static document_t* make_doc(int id, int count) {
 	document_t* document = (document_t*) malloc(sizeof(document));
 	document->id = id;
 	document->key_wc = count;
 	return document;
 }
-// TODO: make_word_count
+
 static word_count_t* make_word_count(char* word) {
 	word_count_t* word_count = (word_count_t*) malloc(sizeof(word_count_t));
 	

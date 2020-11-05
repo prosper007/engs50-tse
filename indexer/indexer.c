@@ -35,16 +35,6 @@
 #include "indexio.h"
 #include <dirent.h>
 
-typedef struct document {
-	int id;
-	int key_wc;
-} document_t;
-
-typedef struct word_count {
-	char word[50];
-	queue_t* word_docs;
-} word_count_t;
- 
 char* NormalizeWord(char* word) {
 	int str_len = strlen(word);
 
@@ -156,12 +146,6 @@ int main(int argc, char* argv[]) {
 		printf("pagedir is empty\n");
 		exit(EXIT_FAILURE);
 	}
-	//printf("max_id: %d\n", id);
-	FILE* index_file = fopen(argv[2], "w");
-	if(index_file == NULL) {
-		printf("Error opening file\n");
-		exit(EXIT_FAILURE);
-	}
 	
 	hashtable_t* indexer = hopen(300*id);
 	for(int i = 1; i <= id; i++) {
@@ -195,9 +179,7 @@ int main(int argc, char* argv[]) {
 		webpage_delete(loaded_page);
 	}
 	happly(indexer, sumwords);
-	printf("total count: %d\n", total_count);
 	indexsave(indexer, argv[2]);
-	fclose(index_file);
 	happly(indexer, close_queue);
 	hclose(indexer);
 }
