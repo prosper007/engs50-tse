@@ -120,7 +120,7 @@ void put_searchtally(void* elementp) {
 
 	word_idx_t* word_idx = make_word_idx(curr_word, curr_seq_idx, document->key_wc);
 
-	doc_tally_t* search_res = hsearch(doc_tally_hash, find_doc_id, doc_id, strlen(doc_id));
+	doc_tally_t* search_res = hsearch(query_results, find_doc_id, doc_id, strlen(doc_id));
 	if(search_res != NULL) { // doc_id is already is doc_tally hashtable
 		qput(search_res->word_idxs, word_idx);
 		if(document->key_wc < search_res->rank) {
@@ -394,14 +394,6 @@ int main(int argc, char* argv[]) {
 	}
 	happly(index, close_queue);
 	hclose(index);
-	
-	//happly(query_results, close_doc_tallies);
-	//hclose(query_results);
-	
-	//hclose(doc_tally_hash);
-
-	//qapply(query, close_and_seqs);
-	//qclose(query);
 	
 	exit(EXIT_SUCCESS);
 }
