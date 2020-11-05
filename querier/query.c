@@ -22,7 +22,7 @@
 
 typedef struct doc_tally {
 	int id;
-	int query_tally;
+	queue_t* word_idxs;
 	int rank;
 	char url[100];
 } doc_tally_t;
@@ -33,13 +33,28 @@ typedef struct and_sequence {
 	int seq_idx;
 } and_seq_t;
 
+typedef struct word_idx {
+	char word[50];
+	int seq_idx;
+	int key_wc;
+} word_idx_t;
 
+// Create a global hashtable to put ID and search tallies
+queue_t* query;
+hashtable_t* query_results;
+hashtable_t* doc_tally_hash;
+int seq_idx = 1;
+char* curr_word;
+int curr_seq_idx;
+int curr_filter_idx;
+int curr_filter_len;
+int doc_actual_len = 0;
+int curr_doc_rank = INT_MAX;
 
-
-doc_tally_t* make_doc_tally(int id, int query_tally, int rank) {
+doc_tally_t* make_doc_tally(int id, int rank) {
 	doc_tally_t* doc_tally = (doc_tally_t*) malloc(sizeof(doc_tally_t));
 	doc_tally->id = id;
-	doc_tally->query_tally = query_tally;
+	doc_tally->word_idxs = qopen();
 	doc_tally->rank = rank;
 	return doc_tally;
 }
@@ -50,6 +65,14 @@ and_seq_t* make_and_sequence(int seq_idx) {
 	and_seq->seq_len = 0;
 	and_seq->seq_idx = seq_idx;
 	return and_seq;
+}
+
+word_idx_t* make_word_idx(char* word, int seq_idx, int key_wc) {
+	word_idx_t* word_idx = (word_idx_t*) malloc(sizeof(word_idx_t));
+	strcpy(word_idx->word, word);
+	word_idx->seq_idx = seq_idx;
+	word_idx->key_wc = key_wc;
+	return word_idx;
 }
 	
 char* normalize_word(char* word) {
@@ -76,13 +99,6 @@ bool search_word(void* elementp, const void* searchkeyp) {
 	}
 }
 
-// Create a global hashtable to put ID and search tallies
-hashtable_t* doc_tally_hash;
-queue_t* query_docs;
-int normalized_count = 0;
-queue_t* query;
-int seq_idx = 1;
-
 bool find_doc_id(void* elementp, const void* searchkeyp) {
 	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
 	char* search_id = (char*) searchkeyp;
@@ -97,42 +113,69 @@ bool find_doc_id(void* elementp, const void* searchkeyp) {
 //A function (that we will qapply to queue of docs for each word) that puts id's into hashtable
 void put_searchtally(void* elementp) {
 	document_t* document = (document_t*) elementp;
+
 	char doc_id[50];
 	sprintf(doc_id, "%d", document->id);
+
+	word_idx_t* word_idx = make_word_idx(curr_word, curr_seq_idx, document->key_wc);
+
 	doc_tally_t* search_res = hsearch(doc_tally_hash, find_doc_id, doc_id, strlen(doc_id));
 	if(search_res != NULL) { // doc_id is already is doc_tally hashtable
-		search_res->query_tally += 1;
+		qput(search_res->word_idxs, word_idx);
 		if(document->key_wc < search_res->rank) {
 			search_res->rank = document->key_wc;
 		}
 	} else {
-		doc_tally_t* doc_tally = make_doc_tally(document->id, 1, document->key_wc);
+		doc_tally_t* doc_tally = make_doc_tally(document->id, document->key_wc);
+		qput(doc_tally->word_idxs, word_idx);
 		hput(doc_tally_hash, doc_tally, doc_id, strlen(doc_id)); //put search tally for each id
 	}
 }
 
-void print_hash(void* elementp) {
-	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
-	printf("doc id: %d, query tally: %d, rank: %d\n", doc_tally->id, doc_tally->query_tally, doc_tally->rank);
-}
-
-void filter_docs(void* elementp) {
-	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
-	if(doc_tally->query_tally == normalized_count) {
-		doc_tally_t* doc_tally_copy = make_doc_tally(doc_tally->id, doc_tally->query_tally, doc_tally->rank);
-		char file_loc[50];
-		sprintf(file_loc, "../pages/%d", doc_tally_copy->id);
-		FILE *id_file = fopen(file_loc, "r");
-		if(id_file == NULL) {
-			return;
-		}
-		fgets(doc_tally_copy->url, sizeof(doc_tally_copy->url), id_file);
-		qput(query_docs, doc_tally_copy);
-		fclose(id_file);
+void get_actual_len(void* elementp) {
+	word_idx_t* word_idx = (word_idx_t*) elementp;
+	if(word_idx->seq_idx == curr_filter_idx) {
+		doc_actual_len += 1;
+	}
+	if(word_idx->key_wc < curr_doc_rank) {
+		curr_doc_rank = word_idx->key_wc;
 	}
 }
 
-void print_queue(void* elementp) {
+void filter_doc_tallies(void* elementp) {
+	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
+	qapply(doc_tally->word_idxs, get_actual_len);
+	if(doc_actual_len == curr_filter_len) {
+		char id[50];
+		sprintf(id, "%d", doc_tally->id);
+		doc_tally_t* search_result = hsearch(query_results, find_doc_id, id, strlen(id));
+		if(search_result == NULL) { // document is not already in result hashtable
+			doc_tally_t* doc_tally_copy = make_doc_tally(doc_tally->id, curr_doc_rank);
+			char file_loc[50];
+			sprintf(file_loc, "../pages/%d", doc_tally_copy->id);
+			FILE *id_file = fopen(file_loc, "r");
+			if(id_file == NULL) {
+				return;
+			}
+			fgets(doc_tally_copy->url, sizeof(doc_tally_copy->url), id_file);
+			hput(query_results, doc_tally_copy, id, strlen(id));
+			fclose(id_file);
+		} else { // document is already in result hashtable. just increase rank
+			search_result->rank += curr_doc_rank;
+		}
+	}
+	curr_doc_rank = INT_MAX;
+	doc_actual_len = 0;
+}
+
+void process_query(void* elementp) { // process all "and" sequences, connected by "or"s
+	and_seq_t* and_seq = (and_seq_t*) elementp;
+	curr_filter_idx = and_seq->seq_idx;
+	curr_filter_len = and_seq->seq_len;
+	happly(doc_tally_hash, filter_doc_tallies); 
+}
+
+void print_queue_results(void* elementp) {
 	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
 	printf("rank: %d, doc: %d, url: %s", doc_tally->rank, doc_tally->id, doc_tally->url);
 }
@@ -142,22 +185,21 @@ void close_queue(void* elementp) {
 	qclose(word_count->word_docs);
 }
 
-void put_word(and_seq_t* and_seq, char* word) {
-	qput(and_seq->and_queries, word);
-	and_seq->seq_len += 1;
+void close_doc_tallies(void* elementp) {
+	doc_tally_t* doc_tally = (doc_tally_t*) elementp;
+	qclose(doc_tally->word_idxs);
 }
 
-void print_and_seq(void* elementp) {
-	char* word = (char*) elementp;
-	printf("%s\n", word);
-}
-
-void print_query(void* elementp) {
+void close_and_seqs(void* elementp) {
 	and_seq_t* and_seq = (and_seq_t*) elementp;
-	printf("and_seq_idx: %d\n", and_seq->seq_idx);
-	qapply(and_seq->and_queries, print_and_seq);
-	printf("seq_len: %d\n", and_seq->seq_len);
-	printf("\n");
+	qclose(and_seq->and_queries);
+}
+
+void put_word(and_seq_t* and_seq, char* word) {
+	char* word_copy = (char*) malloc(strlen(word)+1);
+	strcpy(word_copy, word);
+	qput(and_seq->and_queries, word_copy);
+	and_seq->seq_len += 1;
 }
 
 int main(void) {
@@ -169,11 +211,10 @@ int main(void) {
 	while(fgets(input, MAX_LEN, stdin) != NULL) {
 		query = qopen();
 		doc_tally_hash = hopen(MAX_LEN);
-		query_docs = qopen();
+		query_results = hopen(MAX_LEN);
 		
 		char* delim = " \t\n";
 		char* token;
-		normalized_count = 0; // Count to keep track of the number of words in the query
 		token = strtok(input, delim);
 		if(token == NULL) {
 			printf("> ");
@@ -185,8 +226,9 @@ int main(void) {
 		bool found_or = false;
 		bool has_error = false;
 		and_seq_t* and_seq;
+		char* normalized;
 		while(token != NULL) {
-			char* normalized = normalize_word(token);
+			normalized = normalize_word(token);
 			// normalized word contains non-alphabetic character
 			if(normalized == NULL) {
 				printf("[invalid query] a\n");
@@ -248,6 +290,13 @@ int main(void) {
 			
 			put_word(and_seq, normalized);
 			token = strtok(NULL, delim);
+
+			word_count_t* word_count = (word_count_t*) hsearch(index, search_word, normalized, strlen(normalized));
+			if(word_count != NULL) { // word exists in index
+				curr_word = normalized;
+				curr_seq_idx = and_seq->seq_idx;
+				qapply(word_count->word_docs, put_searchtally);
+			}
 		}
 
 		if(found_and || found_or) {
@@ -258,24 +307,19 @@ int main(void) {
 		if(!has_error) {
 			qput(query, and_seq);
 		}
-		/*		
-		word_count_t* word_count = (word_count_t*) hsearch(index, search_word, normalized, strlen(normalized));
-		if(word_count != NULL) { // word exists in index
-			qapply(word_count->word_docs, put_searchtally); // DOUBLE CHECK THIS
-		}
-	}
-			normalized_count++; // increment normalized count 
-
-		}
-		//happly(doc_tally_hash, print_hash);
-		happly(doc_tally_hash, filter_docs);
-		qapply(query_docs, print_queue);
-		*/
-		// NEED TO CHECK IF SEARCH TALLY FOR EACH ID MATCHES NORMALIZED_COUNT
-		qapply(query, print_query);
+				
+		qapply(query, process_query);
+		happly(query_results, print_queue_results);
+		
+		happly(doc_tally_hash, close_doc_tallies);
 		hclose(doc_tally_hash);
+		
+		happly(query_results, close_doc_tallies);
+		hclose(query_results);
+
+		qapply(query, close_and_seqs);
 		qclose(query);
-		qclose(query_docs);
+		
 		seq_idx = 1;
 		printf("> ");
 	}
