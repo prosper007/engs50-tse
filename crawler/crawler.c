@@ -106,7 +106,7 @@ void* crawler_func(void *crawler_arg) {
 		curr_id_count = id_count;
 		pthread_mutex_unlock(&count_lock);
 	}
-	
+	webpage_delete(curr_webpage);
 	return NULL;
 }
 
