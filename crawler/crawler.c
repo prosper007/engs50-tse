@@ -54,7 +54,7 @@ void* crawler_func(void *crawler_arg) {
 	int curr_id_count = 0;
 	
 	pthread_mutex_lock(&count_lock);
-	id_count += 1;
+	id_count = 1;
 	curr_id_count = id_count;
 	pthread_mutex_unlock(&count_lock);
 	
@@ -199,6 +199,7 @@ int main(int argc, char *argv[]) {
 	while((curr_webpage=lqget(thayer_queue)) != NULL) {
 		webpage_delete(curr_webpage);
 	}
+	pthread_mutex_destroy(&count_lock);
 	lhclose(thayer_hash);
 	lqclose(thayer_queue);
 	qclose(threads);
