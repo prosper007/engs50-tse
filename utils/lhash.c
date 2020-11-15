@@ -8,20 +8,21 @@
  * Description: 
  * 
  */
-
+#include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include "hashtable.h"
+#include "hash.h"
 #include "lhash.h"
 #include <pthread.h>
 
 typedef struct lhashtable {
 	hashtable_t* hashtable;
 	pthread_mutex_t* mutex;
-} lhashtable_i
+} lhashtable_i;
 
 /* hopen -- opens a hash table with initial size hsize */
-lhashtable_t *lhopen(uint32_t lhsize){
+lhashtable_t* lhopen(uint32_t lhsize){
 	lhashtable_i* lhashtable = (lhashtable_i*)malloc(sizeof(lhashtable_i));
 	
 	hashtable_t* hashtable = hopen(lhsize);
@@ -49,7 +50,7 @@ void lhclose(lhashtable_t *lhtp){
  * returns 0 for success; non-zero otherwise
  */
 int32_t lhput(lhashtable_t *lhtp, void *ep, const char *key, int keylen){
-	lhashtable_t *lhti = (lhashtable_i*) lhtp;
+	lhashtable_i *lhti = (lhashtable_i*) lhtp;
 	pthread_mutex_lock(lhti->mutex);
 	int32_t result = hput(lhti->hashtable, ep, key, keylen);
 	pthread_mutex_unlock(lhti->mutex);
@@ -72,7 +73,7 @@ void *lhsearch(lhashtable_t *lhtp,
 	      bool (*searchfn)(void* elementp, const void* searchkeyp), 
 	      const char *key, 
 							 int32_t keylen){
-	lhashtable_i* lhti = (lhahstable_i*) lhtp;
+	lhashtable_i* lhti = (lhashtable_i*) lhtp;
 	pthread_mutex_lock(lhti->mutex);
 	void* result = hsearch(lhti->hashtable, searchfn, key, keylen);
 	pthread_mutex_unlock(lhti->mutex);
